@@ -22,6 +22,11 @@
 			<version>0.20.2-CDH3B4</version>
 		</dependency>
 		<dependency>
+			<groupId>org.apache.hadoop</groupId>
+			<artifactId>hadoop-examples</artifactId>
+			<version>0.20.2-CDH3B4</version>
+		</dependency>
+		<dependency>
 			<groupId>org.apache.hadoop.hive</groupId>
 			<artifactId>hive-exec</artifactId>
 			<version>0.7.0-CDH3B4</version>
@@ -54,7 +59,7 @@
 
   <repositories>
     <repository>
-      <id>cloudera-release</id>
+      <id>cloudera-releases</id>
       <url>https://repository.cloudera.com/content/repositories/releases</url>
       <snapshots>
         <enabled>false</enabled>

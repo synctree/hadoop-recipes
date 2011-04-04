@@ -1,0 +1,11 @@
+#!/usr/bin/env ruby
+
+ignore = %w(127.0.0.1 192.168 10)
+log_regex = /^([\d.]+)\s/
+
+while(line = STDIN.gets)
+  next unless line =~ log_regex
+  ip = $1
+
+  print line if ignore.reject { |ignore_ip| ip !~ /^#{ignore_ip}(\.|$)/ }.empty?
+end
