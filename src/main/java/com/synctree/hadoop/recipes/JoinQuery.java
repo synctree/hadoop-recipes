@@ -3,8 +3,9 @@ package com.synctree.hadoop.recipes;
 import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.LinkedList;
 
-
+import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.ArrayWritable;
@@ -35,25 +36,19 @@ public class JoinQuery {
   public static final int MOVIES_IMAGE_COLUMN             = 2;
 
   public static final String DELIMITER = "\t";
+  public final static Text BLANK = new Text("");
 
   public static class SelectAndFilterMapper
     extends Mapper<Object, Text, Text, TextArrayWritable> {
 
-    private final static Text blank = new Text("");
     private Text joinKey = new Text();
     private TextArrayWritable columns = new TextArrayWritable();
-
-    private String fileName;
-
-
-    public void configure(JobConf job) {
-      fileName = job.get("map.input.file");
-    }
 
     public void map(Object key, Text value, Context context) 
       throws IOException {
 
       String [] row = value.toString().split(DELIMITER);
+      String fileName = ((FileSplit) context.getInputSplit()).getPath().getName();
 
       try {
         if(fileName.startsWith("people")) {
@@ -66,7 +61,7 @@ public class JoinQuery {
         } 
         else if(fileName.startsWith("movies")) {
           columns.set( new String [] {
-            "people",
+            "movies",
             row[MOVIES_NAME_COLUMN], 
             row[MOVIES_IMAGE_COLUMN]
           });
@@ -82,6 +77,46 @@ public class JoinQuery {
 
     }
   }
+
+  public static class CombineMapsReducer 
+       extends Reducer<Text,TextArrayWritable,Text, TextArrayWritable> {
+    private TextArrayWritable columns = new TextArrayWritable();
+
+    public void reduce(Text key, Iterable<TextArrayWritable> values, 
+                       Context context
+                       ) throws IOException, InterruptedException {
+
+      LinkedList<String []> people = new LinkedList<String[]>();
+      LinkedList<String []> movies = new LinkedList<String[]>();
+
+      for (TextArrayWritable val : values) {
+        String dataset = val.getTextAt(0).toString();
+        if(dataset.equals("people")) {
+          people.add(new String[] {
+            val.getTextAt(1).toString(),
+            val.getTextAt(2).toString(),
+          });
+        }
+        if(dataset.equals("movies")) {
+          movies.add(new String[] {
+            val.getTextAt(1).toString(),
+            val.getTextAt(2).toString(),
+          });
+        }
+      }
+
+      for(String[] person : people) {
+        for(String[] movie : movies) {
+          columns.set(new String[] {
+            person[0], person[1],
+            movie[0], movie[1]
+          });
+          context.write(BLANK, columns);
+        }
+      }
+    }
+  }
+
 
   public static class TextArrayWritable extends ArrayWritable 
     implements WritableComparable<TextArrayWritable> {
@@ -129,17 +164,19 @@ public class JoinQuery {
   public static void main(String[] args) throws Exception {
     Configuration conf = new Configuration();
     String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
-    if (otherArgs.length != 2) {
+    if (otherArgs.length != 3) {
       System.err.println("Usage: " + JoinQuery.class.getName() + " <in> <out>");
       System.exit(2);
     }
     Job job = new Job(conf, JoinQuery.class.getName());
     job.setJarByClass(JoinQuery.class);
     job.setMapperClass(SelectAndFilterMapper.class);
+    job.setReducerClass(CombineMapsReducer.class);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(TextArrayWritable.class);
     FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
-    FileOutputFormat.setOutputPath(job, new Path(otherArgs[1]));
+    FileInputFormat.addInputPath(job, new Path(otherArgs[1]));
+    FileOutputFormat.setOutputPath(job, new Path(otherArgs[2]));
     System.exit(job.waitForCompletion(true) ? 0 : 1);
   }
 
