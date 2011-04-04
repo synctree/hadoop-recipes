@@ -1,0 +1,21 @@
+
+# Streaming
+
+## Grep
+curl http://www.mdbg.net/chindict/export/cedict/cedict_1_0_ts_utf-8_mdbg.txt.gz > data/cedict.txt.gz
+$HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/hadoop-streaming.jar \
+     -input    data/cedict.txt.gz \
+     -output   out/streaming/grep_database_mandarin \
+     -mapper   'grep database' \
+     -reducer  org.apache.hadoop.mapred.lib.IdentityReducer
+
+$HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/hadoop-streaming.jar \
+     -input    data/access.log \
+     -output   out/streaming/filter_ips \
+     -mapper   './script/filter_ips' \
+     -reducer  org.apache.hadoop.mapred.lib.IdentityReducer
+
+
+$HADOOP_HOME/bin/hadoop  jar $HADOOP_HOME/hadoop-streaming.jar -input data/access.log -output counts_by_ip \
+    -mapper    /bin/cat \
+    -reducer   /usr/bin/awk\ '{count[$1]++}END{for(j in count) print j":"count[j]}'
